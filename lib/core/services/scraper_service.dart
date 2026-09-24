@@ -29,20 +29,28 @@ class SearchResultBundle {
 }
 
 class ScraperService {
-  final Dio _dio = Dio(
-    BaseOptions(
-      headers: {
-        'User-Agent':
-            'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 '
-            '(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        'Accept': 'application/json, text/html, */*;q=0.8',
-        'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
-      },
-      validateStatus: (status) => true,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-    ),
-  );
+  final Dio _dio;
+
+  ScraperService() : _dio = _createDefaultDio();
+
+  ScraperService.withDio(Dio dio) : _dio = dio;
+
+  static Dio _createDefaultDio() {
+    return Dio(
+      BaseOptions(
+        headers: {
+          'User-Agent':
+              'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 '
+              '(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+          'Accept': 'application/json, text/html, */*;q=0.8',
+          'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
+        },
+        validateStatus: (status) => true,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ),
+    );
+  }
 
   // ─────────────────────────────────────────────────────────
   //  ANA FONKSİYON: Birden fazla kaynaktan veri çek
@@ -239,6 +247,8 @@ class ScraperService {
           continue;
         }
       }
+    } on DioException {
+      rethrow;
     } catch (e) {
       debugPrint('ScraperService Trendyol API error: $e');
     }
@@ -323,6 +333,8 @@ class ScraperService {
           continue;
         }
       }
+    } on DioException {
+      rethrow;
     } catch (e) {
       debugPrint('ScraperService Cimri error: $e');
     }
