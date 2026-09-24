@@ -73,14 +73,10 @@ class ProductDetailScreen extends ConsumerWidget {
                     color: Colors.black.withValues(alpha: 0.5),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.share,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  child: const Icon(Icons.share, color: Colors.white, size: 20),
                 ),
                 onPressed: () {
-                  final shareText = 
+                  final shareText =
                       '🔥 İndirim Yakaladım!\n\n'
                       '📦 ${deal.title}\n'
                       '💰 ${deal.discountedPrice.toStringAsFixed(2)} TL (Piyasa: ${deal.originalPrice.toStringAsFixed(2)} TL)\n\n'
@@ -205,14 +201,17 @@ class ProductDetailScreen extends ConsumerWidget {
                     ],
                   ).animate().fadeIn().slideX(begin: -0.1),
 
-                      const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                      Text(
-                        '${_sourceLabel()}${deal.fetchedAt == null ? '' : ' • Son kontrol: ${deal.fetchedAt!.day.toString().padLeft(2, '0')}.${deal.fetchedAt!.month.toString().padLeft(2, '0')} ${deal.fetchedAt!.hour.toString().padLeft(2, '0')}:${deal.fetchedAt!.minute.toString().padLeft(2, '0')}'}',
-                        style: const TextStyle(color: AppColors.textTertiary, fontSize: 11),
-                      ),
+                  Text(
+                    '${_sourceLabel()}${deal.fetchedAt == null ? '' : ' • Son kontrol: ${deal.fetchedAt!.day.toString().padLeft(2, '0')}.${deal.fetchedAt!.month.toString().padLeft(2, '0')} ${deal.fetchedAt!.hour.toString().padLeft(2, '0')}:${deal.fetchedAt!.minute.toString().padLeft(2, '0')}'}',
+                    style: const TextStyle(
+                      color: AppColors.textTertiary,
+                      fontSize: 11,
+                    ),
+                  ),
 
-                      // Title
+                  // Title
                   Text(
                     deal.title,
                     style: const TextStyle(
@@ -287,15 +286,15 @@ class ProductDetailScreen extends ConsumerWidget {
                                   ],
                                 ),
                                 const SizedBox(height: 4),
-                                 if (deal.originalPrice > deal.discountedPrice)
-                                   Text(
-                                     'Karşılaştırma fiyatı: ${deal.originalPrice.toStringAsFixed(2)} TL',
-                                     style: const TextStyle(
-                                       color: AppColors.textSecondary,
-                                       fontSize: 13,
-                                       decoration: TextDecoration.lineThrough,
-                                     ),
-                                   ),
+                                if (deal.originalPrice > deal.discountedPrice)
+                                  Text(
+                                    'Karşılaştırma fiyatı: ${deal.originalPrice.toStringAsFixed(2)} TL',
+                                    style: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                  ),
                               ],
                             ),
                             Container(
@@ -304,7 +303,9 @@ class ProductDetailScreen extends ConsumerWidget {
                                 vertical: 12,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.success.withValues(alpha: 0.15),
+                                color: AppColors.success.withValues(
+                                  alpha: 0.15,
+                                ),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Column(
@@ -347,45 +348,50 @@ class ProductDetailScreen extends ConsumerWidget {
 
                   Container(
                     height: 200,
-                    padding: const EdgeInsets.only(
-                      right: 20,
-                      top: 20,
-                      bottom: 10,
-                    ),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: AppColors.cardDark,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: AppColors.borderDark),
                     ),
-                    child: LineChart(
-                      LineChartData(
-                        gridData: const FlGridData(show: false),
-                        titlesData: const FlTitlesData(
-                          rightTitles: AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          topTitles: AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 40,
+                    child: history.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Bu ürün için doğrulanmış fiyat geçmişi yok.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 22,
-                            ),
-                          ),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: history.isEmpty
-                                ? [const FlSpot(0, 0)]
-                                : history
+                          )
+                        : LineChart(
+                            LineChartData(
+                              gridData: const FlGridData(show: false),
+                              titlesData: const FlTitlesData(
+                                rightTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                topTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 40,
+                                  ),
+                                ),
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 22,
+                                  ),
+                                ),
+                              ),
+                              borderData: FlBorderData(show: false),
+                              lineBarsData: [
+                                LineChartBarData(
+                                  spots: history
                                       .asMap()
                                       .entries
                                       .map(
@@ -395,19 +401,21 @@ class ProductDetailScreen extends ConsumerWidget {
                                         ),
                                       )
                                       .toList(),
-                            isCurved: true,
-                            color: AppColors.primary,
-                            barWidth: 3,
-                            isStrokeCapRound: true,
-                            dotData: const FlDotData(show: false),
-                            belowBarData: BarAreaData(
-                              show: true,
-                              color: AppColors.primary.withValues(alpha: 0.2),
+                                  isCurved: true,
+                                  color: AppColors.primary,
+                                  barWidth: 3,
+                                  isStrokeCapRound: true,
+                                  dotData: const FlDotData(show: false),
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
                   ).animate().fadeIn(delay: 500.ms),
 
                   const SizedBox(height: 24),
@@ -419,10 +427,20 @@ class ProductDetailScreen extends ConsumerWidget {
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: AppColors.cardDark,
-                        builder: (_) => CouponCalculationSheet(price: deal.discountedPrice),
+                        builder: (_) =>
+                            CouponCalculationSheet(price: deal.discountedPrice),
                       ),
-                      icon: const Icon(Icons.local_offer_outlined, color: AppColors.primary),
-                      label: const Text('Kupon Sonrası Fiyatı Hesapla', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                      icon: const Icon(
+                        Icons.local_offer_outlined,
+                        color: AppColors.primary,
+                      ),
+                      label: const Text(
+                        'Kupon Sonrası Fiyatı Hesapla',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -454,8 +472,12 @@ class ProductDetailScreen extends ConsumerWidget {
                         }
 
                         // Ürünü favorilere ekle (WorkManager arka planda takip eder)
-                        if (!ref.read(favoritesProvider).any((d) => d.id == deal.id)) {
-                          ref.read(favoritesProvider.notifier).toggleFavorite(deal);
+                        if (!ref
+                            .read(favoritesProvider)
+                            .any((d) => d.id == deal.id)) {
+                          ref
+                              .read(favoritesProvider.notifier)
+                              .toggleFavorite(deal);
                         }
 
                         ScaffoldMessenger.of(context).showSnackBar(

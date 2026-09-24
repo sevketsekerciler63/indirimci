@@ -1,4 +1,12 @@
-enum DataSourceType { officialApi, affiliateFeed, scraper, manual, mock, unknown }
+enum DataSourceType {
+  officialApi,
+  affiliateFeed,
+  scraper,
+  manual,
+  mock,
+  unknown,
+}
+
 enum CouponStatus { unknown, worked, failed }
 
 class Coupon {
@@ -41,45 +49,121 @@ class Coupon {
   });
 
   Map<String, dynamic> toMap() => {
-        'id': id, 'code': code, 'platform': platform, 'description': description,
-        'discountAmount': discountAmount, 'discountPercent': discountPercent,
-        'minOrderAmount': minOrderAmount, 'category': category,
-        'expiryDate': expiryDate?.toIso8601String(), 'isVerified': isVerified,
-        'usageCount': usageCount, 'successRate': successRate, 'isHidden': isHidden,
-        'source': source.name, 'verifiedAt': verifiedAt?.toIso8601String(),
-        'lastCheckedAt': lastCheckedAt?.toIso8601String(), 'status': status.name,
-      };
+    'id': id,
+    'code': code,
+    'platform': platform,
+    'description': description,
+    'discountAmount': discountAmount,
+    'discountPercent': discountPercent,
+    'minOrderAmount': minOrderAmount,
+    'category': category,
+    'expiryDate': expiryDate?.toIso8601String(),
+    'isVerified': isVerified,
+    'usageCount': usageCount,
+    'successRate': successRate,
+    'isHidden': isHidden,
+    'source': source.name,
+    'verifiedAt': verifiedAt?.toIso8601String(),
+    'lastCheckedAt': lastCheckedAt?.toIso8601String(),
+    'status': status.name,
+  };
 
   factory Coupon.fromMap(Map<dynamic, dynamic> map) => Coupon(
-        id: map['id']?.toString() ?? '', code: map['code']?.toString() ?? '',
-        platform: map['platform']?.toString() ?? '', description: map['description']?.toString() ?? '',
-        discountAmount: _double(map['discountAmount']), discountPercent: _double(map['discountPercent']),
-        minOrderAmount: _double(map['minOrderAmount']), category: map['category']?.toString(),
-        expiryDate: _date(map['expiryDate']), isVerified: map['isVerified'] == true,
-        usageCount: map['usageCount'] is num ? (map['usageCount'] as num).toInt() : 0,
-        successRate: map['successRate'] is num ? (map['successRate'] as num).toInt() : 0,
-        isHidden: map['isHidden'] == true,
-        source: DataSourceType.values.firstWhere((e) => e.name == map['source'], orElse: () => DataSourceType.unknown),
-        verifiedAt: _date(map['verifiedAt']), lastCheckedAt: _date(map['lastCheckedAt']),
-        status: CouponStatus.values.firstWhere((e) => e.name == map['status'], orElse: () => CouponStatus.unknown),
-      );
+    id: map['id']?.toString() ?? '',
+    code: map['code']?.toString() ?? '',
+    platform: map['platform']?.toString() ?? '',
+    description: map['description']?.toString() ?? '',
+    discountAmount: _double(map['discountAmount']),
+    discountPercent: _double(map['discountPercent']),
+    minOrderAmount: _double(map['minOrderAmount']),
+    category: map['category']?.toString(),
+    expiryDate: _date(map['expiryDate']),
+    isVerified: map['isVerified'] == true,
+    usageCount: map['usageCount'] is num
+        ? (map['usageCount'] as num).toInt()
+        : 0,
+    successRate: map['successRate'] is num
+        ? (map['successRate'] as num).toInt()
+        : 0,
+    isHidden: map['isHidden'] == true,
+    source: DataSourceType.values.firstWhere(
+      (e) => e.name == map['source'],
+      orElse: () => DataSourceType.unknown,
+    ),
+    verifiedAt: _date(map['verifiedAt']),
+    lastCheckedAt: _date(map['lastCheckedAt']),
+    status: CouponStatus.values.firstWhere(
+      (e) => e.name == map['status'],
+      orElse: () => CouponStatus.unknown,
+    ),
+  );
 
-  Coupon copyWith({CouponStatus? status, DateTime? lastCheckedAt}) => Coupon(
-        id: id, code: code, platform: platform, description: description,
-        discountAmount: discountAmount, discountPercent: discountPercent,
-        minOrderAmount: minOrderAmount, category: category, expiryDate: expiryDate,
-        isVerified: isVerified, usageCount: usageCount, successRate: successRate,
-        isHidden: isHidden, source: source, verifiedAt: verifiedAt,
-        lastCheckedAt: lastCheckedAt ?? this.lastCheckedAt,
-        status: status ?? this.status,
-      );
+  Coupon copyWith({
+    CouponStatus? status,
+    DateTime? lastCheckedAt,
+    bool? isVerified,
+    int? usageCount,
+    int? successRate,
+    DateTime? verifiedAt,
+  }) => Coupon(
+    id: id,
+    code: code,
+    platform: platform,
+    description: description,
+    discountAmount: discountAmount,
+    discountPercent: discountPercent,
+    minOrderAmount: minOrderAmount,
+    category: category,
+    expiryDate: expiryDate,
+    isVerified: isVerified ?? this.isVerified,
+    usageCount: usageCount ?? this.usageCount,
+    successRate: successRate ?? this.successRate,
+    isHidden: isHidden,
+    source: source,
+    verifiedAt: verifiedAt ?? this.verifiedAt,
+    lastCheckedAt: lastCheckedAt ?? this.lastCheckedAt,
+    status: status ?? this.status,
+  );
 
-  static double? _double(dynamic value) => value == null ? null : double.tryParse(value.toString());
-  static DateTime? _date(dynamic value) => value == null ? null : DateTime.tryParse(value.toString());
+  Coupon copyWithCheckedStatus(CouponStatus newStatus, {DateTime? checkedAt}) {
+    final now = checkedAt ?? DateTime.now();
+    final nextUsageCount = usageCount + 1;
+    final previousWorkedCount = (usageCount * successRate / 100).round();
+    final nextWorkedCount = newStatus == CouponStatus.worked
+        ? previousWorkedCount + 1
+        : previousWorkedCount;
+    final nextSuccessRate = nextUsageCount == 0
+        ? 0
+        : ((nextWorkedCount / nextUsageCount) * 100).round();
+
+    return copyWith(
+      status: newStatus,
+      lastCheckedAt: now,
+      verifiedAt: newStatus == CouponStatus.worked ? now : verifiedAt,
+      isVerified: newStatus == CouponStatus.worked,
+      usageCount: nextUsageCount,
+      successRate: nextSuccessRate,
+    );
+  }
+
+  static double? _double(dynamic value) =>
+      value == null ? null : double.tryParse(value.toString());
+  static DateTime? _date(dynamic value) =>
+      value == null ? null : DateTime.tryParse(value.toString());
 
   bool get isExpired {
     if (expiryDate == null) return false;
     return DateTime.now().isAfter(expiryDate!);
+  }
+
+  String get maskedCode {
+    if (!isHidden) return code;
+    final trimmed = code.trim();
+    if (trimmed.length <= 4) return '••••';
+    final prefix = trimmed.substring(0, 3);
+    final suffix = trimmed.substring(trimmed.length - 3);
+    final hiddenLength = trimmed.length - prefix.length - suffix.length;
+    return '$prefix${'*' * hiddenLength}$suffix';
   }
 
   String get discountText {

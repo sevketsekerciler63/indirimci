@@ -49,7 +49,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _onSearchChanged(String val) {
     ref.read(searchQueryProvider.notifier).state = val;
-    
+
     // Debounce: 800ms bekleyip sonra arama yap
     _debounceTimer?.cancel();
     if (val.trim().isEmpty) {
@@ -72,7 +72,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final results = ref.watch(searchResultsProvider);
+    final results = ref.watch(searchResultBundleProvider);
     final query = ref.watch(searchQueryProvider);
     final favorites = ref.watch(favoritesProvider);
 
@@ -92,32 +92,48 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               decoration: BoxDecoration(
                 color: AppColors.cardDark,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                ),
               ),
               child: TextField(
                 controller: _controller,
                 focusNode: _focusNode,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15,
+                ),
                 decoration: InputDecoration(
                   hintText: 'Ne aramistiniz?',
                   hintStyle: const TextStyle(color: AppColors.textTertiary),
                   prefixIcon: ShaderMask(
-                    shaderCallback: (b) => AppColors.primaryGradient.createShader(b),
-                    child: const Icon(Iconsax.search_normal_1, color: Colors.white),
+                    shaderCallback: (b) =>
+                        AppColors.primaryGradient.createShader(b),
+                    child: const Icon(
+                      Iconsax.search_normal_1,
+                      color: Colors.white,
+                    ),
                   ),
                   suffixIcon: query.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.close, color: AppColors.textTertiary),
+                          icon: const Icon(
+                            Icons.close,
+                            color: AppColors.textTertiary,
+                          ),
                           onPressed: () {
                             _controller.clear();
                             _debounceTimer?.cancel();
                             ref.read(searchQueryProvider.notifier).state = '';
-                            ref.read(activeSearchQueryProvider.notifier).state = '';
+                            ref.read(activeSearchQueryProvider.notifier).state =
+                                '';
                           },
                         )
                       : null,
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
                 ),
                 onChanged: _onSearchChanged,
                 onSubmitted: _onSearchSubmitted,
@@ -136,12 +152,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   Row(
                     children: [
                       ShaderMask(
-                        shaderCallback: (b) => AppColors.primaryGradient.createShader(b),
-                        child: const Icon(Iconsax.magic_star, color: Colors.white, size: 18),
+                        shaderCallback: (b) =>
+                            AppColors.primaryGradient.createShader(b),
+                        child: const Icon(
+                          Iconsax.magic_star,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      const Text('AI Onerileri',
-                          style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w600)),
+                      const Text(
+                        'AI Onerileri',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -152,20 +179,32 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       return GestureDetector(
                         onTap: () {
                           _controller.text = entry.value;
-                          ref.read(searchQueryProvider.notifier).state = entry.value;
-                          ref.read(activeSearchQueryProvider.notifier).state = entry.value;
+                          ref.read(searchQueryProvider.notifier).state =
+                              entry.value;
+                          ref.read(activeSearchQueryProvider.notifier).state =
+                              entry.value;
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.cardDark,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: AppColors.borderDark),
                           ),
-                          child: Text(entry.value,
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                          child: Text(
+                            entry.value,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
                         ),
-                      ).animate().fadeIn(delay: Duration(milliseconds: 100 * entry.key));
+                      ).animate().fadeIn(
+                        delay: Duration(milliseconds: 100 * entry.key),
+                      );
                     }).toList(),
                   ),
                 ],
@@ -187,12 +226,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Iconsax.magic_star, color: AppColors.primaryLight, size: 20),
+                            const Icon(
+                              Iconsax.magic_star,
+                              color: AppColors.primaryLight,
+                              size: 20,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -212,7 +257,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   loading: () => const Padding(
                     padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
                     child: Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
                   error: (error, stackTrace) => const SizedBox.shrink(),
@@ -224,38 +271,113 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           if (query.isNotEmpty)
             Expanded(
               child: results.when(
-                data: (deals) {
-                  if (deals.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Iconsax.search_status, color: AppColors.textTertiary, size: 48),
-                          const SizedBox(height: 16),
-                          Text('"$query" icin sonuc bulunamadi',
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 15)),
-                        ],
+                data: (bundle) {
+                  final deals = bundle.deals;
+                  final statusChips = bundle.statuses.map((status) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            (status.ok ? AppColors.success : AppColors.warning)
+                                .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color:
+                              (status.ok
+                                      ? AppColors.success
+                                      : AppColors.warning)
+                                  .withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        '${status.name}: ${status.message}',
+                        style: TextStyle(
+                          color: status.ok
+                              ? AppColors.success
+                              : AppColors.warning,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     );
+                  }).toList();
+
+                  final header = statusChips.isEmpty
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: statusChips,
+                            ),
+                          ),
+                        );
+
+                  if (deals.isEmpty) {
+                    return Column(
+                      children: [
+                        header,
+                        Expanded(
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Iconsax.search_status,
+                                  color: AppColors.textTertiary,
+                                  size: 48,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  '"$query" icin kanıtlı sonuc bulunamadi',
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
                   }
-                  
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: deals.length,
-                    itemBuilder: (context, index) {
-                      final deal = deals[index];
-                      return DealCard(
-                        deal: deal,
-                        isFavorite: favorites.any((d) => d.id == deal.id),
-                        onFavoriteTap: () => ref.read(favoritesProvider.notifier).toggleFavorite(deal),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => ProductDetailScreen(deal: deal)),
-                          );
-                        },
-                      );
-                    },
+
+                  return Column(
+                    children: [
+                      header,
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: deals.length,
+                          itemBuilder: (context, index) {
+                            final deal = deals[index];
+                            return DealCard(
+                              deal: deal,
+                              isFavorite: favorites.any((d) => d.id == deal.id),
+                              onFavoriteTap: () => ref
+                                  .read(favoritesProvider.notifier)
+                                  .toggleFavorite(deal),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ProductDetailScreen(deal: deal),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
@@ -263,10 +385,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, color: AppColors.error, size: 48),
+                      const Icon(
+                        Icons.error_outline,
+                        color: AppColors.error,
+                        size: 48,
+                      ),
                       const SizedBox(height: 16),
-                      Text('Arama hatası: $e',
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                      Text(
+                        'Arama hatası: $e',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
                     ],
                   ),
                 ),

@@ -56,7 +56,7 @@ class CouponCard extends StatelessWidget {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white, size: 18),
                 const SizedBox(width: 8),
-                Text('${coupon.code} kopyalandı!'),
+                const Text('Kupon kodu panoya kopyalandı.'),
               ],
             ),
             backgroundColor: AppColors.success,
@@ -226,6 +226,16 @@ class CouponCard extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (coupon.usageCount > 0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${coupon.usageCount} deneme • %${coupon.successRate} başarı',
+                          style: const TextStyle(
+                            color: AppColors.textTertiary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       if (onStatusChanged != null)
                         Wrap(
@@ -265,7 +275,7 @@ class CouponCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  coupon.code,
+                                  coupon.maskedCode,
                                   style: const TextStyle(
                                     color: AppColors.primaryLight,
                                     fontSize: 14,

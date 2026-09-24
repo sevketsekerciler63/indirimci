@@ -48,12 +48,23 @@ class CouponCalculator {
         reason: 'Minimum sepet tutarı sağlanmıyor',
       );
     }
+    if (coupon.discountPercent != null && coupon.discountAmount != null) {
+      return CouponCalculation(
+        originalPrice: price,
+        discount: 0,
+        finalPrice: price,
+        applicable: false,
+        reason: 'Kuponda tek indirim türü olmalı',
+      );
+    }
 
     final percentDiscount = coupon.discountPercent == null
         ? 0
         : price * coupon.discountPercent! / 100;
     final amountDiscount = coupon.discountAmount ?? 0;
-    final discount = (percentDiscount + amountDiscount).clamp(0, price).toDouble();
+    final discount = (percentDiscount + amountDiscount)
+        .clamp(0, price)
+        .toDouble();
     return CouponCalculation(
       originalPrice: price,
       discount: discount,

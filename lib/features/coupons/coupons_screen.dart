@@ -6,6 +6,7 @@ import '../../config/theme/app_colors.dart';
 import '../../core/providers/providers.dart';
 import 'widgets/coupon_card.dart';
 import '../../core/models/coupon.dart';
+import '../../core/services/coupon_recommendation_service.dart';
 
 class CouponsScreen extends ConsumerStatefulWidget {
   const CouponsScreen({super.key});
@@ -47,6 +48,13 @@ class _CouponsScreenState extends ConsumerState<CouponsScreen> {
           ],
         ),
         centerTitle: false,
+        actions: [
+          IconButton(
+            tooltip: 'En iyi kuponu bul',
+            onPressed: _showBestCouponDialog,
+            icon: const Icon(Iconsax.magic_star),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -188,6 +196,146 @@ class _CouponsScreenState extends ConsumerState<CouponsScreen> {
     );
   }
 
+  Future<void> _showBestCouponDialog() async {
+    final basket = TextEditingController();
+    var selectedPlatform = _selectedPlatform == 'all'
+        ? 'Yemeksepeti'
+        : _selectedPlatform;
+
+    final result = await showDialog<CouponRecommendation>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('En iyi kuponu bul'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: selectedPlatform,
+                  decoration: const InputDecoration(labelText: 'Platform'),
+                  items: _platforms
+                      .where((platform) => platform != 'all')
+                      .map(
+                        (platform) => DropdownMenuItem(
+                          value: platform,
+                          child: Text(platform),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setDialogState(
+                    () => selectedPlatform = value ?? selectedPlatform,
+                  ),
+                ),
+                TextField(
+                  controller: basket,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Sepet ara toplamı (₺)',
+                    helperText:
+                        'Teslimat/servis ücretleri platforma göre değişebilir.',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Sonuç kesin geçer iddiası değildir; mağazada/sepette doğrulayın.',
+                  style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('İptal'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final total = double.tryParse(basket.text.replaceAll(',', '.'));
+                if (total == null || total <= 0) return;
+                final recommendation = CouponRecommendationService()
+                    .recommendBest(
+                      coupons: ref.read(couponsProvider),
+                      platform: selectedPlatform,
+                      basketTotal: total,
+                    );
+                Navigator.pop(context, recommendation);
+              },
+              child: const Text('Bul'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    basket.dispose();
+    if (result == null || !mounted) return;
+
+    final best = result.best;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(best == null ? 'Uygun kupon yok' : 'En iyi tahmini kupon'),
+        content: best == null
+            ? Text(
+                result.rejected.isEmpty
+                    ? 'Bu platform ve sepet tutarı için kayıtlı kişisel kupon yok.'
+                    : result.rejected
+                          .map(
+                            (item) =>
+                                '${item.coupon.maskedCode}: ${item.reason}',
+                          )
+                          .join('\n'),
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText(
+                    best.coupon.maskedCode,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tahmini indirim: ${best.calculation.discount.toStringAsFixed(2)}₺',
+                  ),
+                  Text(
+                    'Tahmini son tutar: ${best.calculation.finalPrice.toStringAsFixed(2)}₺',
+                  ),
+                  if (best.coupon.minOrderAmount != null)
+                    Text(
+                      'Min. sepet: ${best.coupon.minOrderAmount!.toStringAsFixed(0)}₺',
+                    ),
+                  if (best.coupon.usageCount > 0)
+                    Text(
+                      '${best.coupon.usageCount} deneme • %${best.coupon.successRate} başarı',
+                    ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Kesin geçerlilik değildir; sepette doğrula.',
+                    style: TextStyle(
+                      color: AppColors.textTertiary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showAddCouponDialog() async {
     final code = TextEditingController();
     final platform = TextEditingController(text: 'Manuel');
@@ -269,6 +417,7 @@ class _CouponsScreenState extends ConsumerState<CouponsScreen> {
       discountAmount: isPercent ? null : value,
       minOrderAmount: min,
       source: DataSourceType.manual,
+      isHidden: true,
       lastCheckedAt: DateTime.now(),
     );
     await ref.read(couponsProvider.notifier).addManualCoupon(coupon);

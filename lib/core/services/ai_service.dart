@@ -14,18 +14,24 @@ final aiServiceProvider = Provider<AIService>((ref) {
 
 class AIService {
   final ScraperService _scraperService = ScraperService();
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'https://api.groq.com/openai/v1',
-    headers: {'Content-Type': 'application/json'},
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 15),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: 'https://api.groq.com/openai/v1',
+      headers: {'Content-Type': 'application/json'},
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
+    ),
+  );
 
   bool get _hasApiKey => Env.groqApiKey.trim().isNotEmpty;
 
   /// Groq API'ye chat completion isteği gönder
-  Future<String?> _chatCompletion(String systemPrompt, String userMessage,
-      {double temperature = 0.7, int maxTokens = 1024}) async {
+  Future<String?> _chatCompletion(
+    String systemPrompt,
+    String userMessage, {
+    double temperature = 0.7,
+    int maxTokens = 1024,
+  }) async {
     if (!_hasApiKey) return null;
 
     try {
@@ -83,54 +89,33 @@ class AIService {
   }
 
   String _generateLocalSmartResponse(String query) {
-    final lowerQuery = query.toLowerCase();
-    final platforms = ['Trendyol', 'Amazon TR', 'Hepsiburada', 'N11', 'Migros'];
-    final random = Random();
-    final p1 = platforms[random.nextInt(platforms.length)];
-    var p2 = platforms[random.nextInt(platforms.length)];
-    while (p2 == p1) {
-      p2 = platforms[random.nextInt(platforms.length)];
-    }
-
-    if (lowerQuery.contains('yemek') || lowerQuery.contains('burger') ||
-        lowerQuery.contains('pizza') || lowerQuery.contains('döner')) {
-      return '🍔 Yemek siparişlerinde Yemeksepeti ve Getir uygulamalarını karşılaştırın. '
-          'İlk sipariş kodları ve platform özel kuponları ile %20-40 tasarruf mümkün.';
-    }
-    if (lowerQuery.contains('bebek') || lowerQuery.contains('mama')) {
-      return '🍼 Bebek ürünlerinde $p1 ve $p2 genellikle en iyi fırsatları sunar. '
-          'Haftalık kampanyaları takip etmenizi öneririz.';
-    }
-    if (lowerQuery.contains('elektron') || lowerQuery.contains('telefon') ||
-        lowerQuery.contains('laptop')) {
-      return '💻 Elektronik ürünlerde $p1 ve $p2 karşılaştırın. '
-          'Sezon sonu indirimleri genellikle %15-30 tasarruf sağlar.';
-    }
-    if (lowerQuery.contains('ayakkab') || lowerQuery.contains('giyim')) {
-      return '👟 Giyim ve ayakkabıda $p1 ve $p2 sık sık kampanya düzenler. '
-          'Sezon geçişlerinde %40\'a varan indirimler bulabilirsiniz.';
-    }
-    return '🔍 "$query" için $p1 ve $p2 üzerindeki fırsatları listeliyoruz. '
-        'En iyi fiyat için birden fazla platformu karşılaştırmanızı öneririz.';
+    return '🔎 "$query" için kanıtlı kaynaklardan sonuç arıyorum. '
+        'Doğrulanmış kaynak bulunmadan yüzde, fiyat ya da mağaza iddiası göstermeyeceğim.';
   }
 
   // ─────────────────────────────────────────────────────────
   //  ANA ARAMA: Scraping + AI Fallback
   // ─────────────────────────────────────────────────────────
-  Future<List<Deal>> searchDealsSmart(String query) async {
+  Future<SearchResultBundle> searchDealsSmartBundle(String query) async {
     debugPrint('AIService: searchDealsSmart başladı, query="$query"');
-    List<Deal> allResults = [];
+    final bundle = await _scraperService
+        .getMultiSiteDealBundle(query)
+        .timeout(
+          const Duration(seconds: 12),
+          onTimeout: () => const SearchResultBundle(
+            deals: [],
+            statuses: [
+              SearchSourceStatus(
+                name: 'Tüm kaynaklar',
+                count: 0,
+                ok: false,
+                message: 'Arama zaman aşımına uğradı',
+              ),
+            ],
+          ),
+        );
 
-    // ADIM 1: Scraper ile gerçek sitelerden çek
-    try {
-      final scrapedDeals = await _scraperService
-          .getMultiSiteDeals(query)
-          .timeout(const Duration(seconds: 12), onTimeout: () => <Deal>[]);
-      allResults.addAll(scrapedDeals);
-      debugPrint('AIService: Scraper ${scrapedDeals.length} sonuç döndü');
-    } catch (e) {
-      debugPrint('AIService: Scraper hata: $e');
-    }
+    final allResults = <Deal>[...bundle.deals];
 
     // ADIM 2: Scraper az sonuç döndüyse AI ile tamamla
     if (allResults.length < 3 && _hasApiKey && Env.enableUntrustedData) {
@@ -150,7 +135,11 @@ class AIService {
     }
 
     debugPrint('AIService: Toplam ${allResults.length} sonuç');
-    return allResults;
+    return SearchResultBundle(deals: allResults, statuses: bundle.statuses);
+  }
+
+  Future<List<Deal>> searchDealsSmart(String query) async {
+    return (await searchDealsSmartBundle(query)).deals;
   }
 
   // ─────────────────────────────────────────────────────────
@@ -190,23 +179,26 @@ JSON formatı:
       text = text.substring(start, end + 1);
 
       final List<dynamic> jsonList = jsonDecode(text);
-      return jsonList.map((item) {
-        final m = item as Map<String, dynamic>;
-        return Coupon(
-          id: 'ai_coupon_${DateTime.now().millisecondsSinceEpoch}_${m['code']}',
-          code: (m['code'] ?? '').toString(),
-          platform: platform,
-          description: (m['description'] ?? '').toString(),
-          discountPercent: _safeDouble(m['discountPercent']),
-          discountAmount: _safeDouble(m['discountAmount']),
-          minOrderAmount: _safeDouble(m['minOrderAmount']),
-          category: m['category']?.toString(),
-          expiryDate: DateTime.now().add(const Duration(days: 7)),
-          isVerified: false,
-          usageCount: Random().nextInt(5000) + 100,
-          successRate: Random().nextInt(30) + 60,
-        );
-      }).where((c) => c.code.trim().isNotEmpty).toList();
+      return jsonList
+          .map((item) {
+            final m = item as Map<String, dynamic>;
+            return Coupon(
+              id: 'ai_coupon_${DateTime.now().millisecondsSinceEpoch}_${m['code']}',
+              code: (m['code'] ?? '').toString(),
+              platform: platform,
+              description: (m['description'] ?? '').toString(),
+              discountPercent: _safeDouble(m['discountPercent']),
+              discountAmount: _safeDouble(m['discountAmount']),
+              minOrderAmount: _safeDouble(m['minOrderAmount']),
+              category: m['category']?.toString(),
+              expiryDate: DateTime.now().add(const Duration(days: 7)),
+              isVerified: false,
+              usageCount: Random().nextInt(5000) + 100,
+              successRate: Random().nextInt(30) + 60,
+            );
+          })
+          .where((c) => c.code.trim().isNotEmpty)
+          .toList();
     } catch (e) {
       debugPrint('AIService findCouponsWithAI error: $e');
       return [];
@@ -251,21 +243,24 @@ JSON formatı:
     for (var i = 0; i < jsonList.length; i++) {
       try {
         final item = jsonList[i] as Map<String, dynamic>;
-        deals.add(Deal(
-          id: 'ai_${DateTime.now().millisecondsSinceEpoch}_$i',
-          title: (item['title'] ?? query).toString(),
-          description: (item['description'] ?? 'AI önerisi').toString(),
-          imageUrl: '',
-          platform: (item['platform'] ?? 'İnternet').toString(),
-          category: (item['category'] ?? 'genel').toString(),
-          originalPrice: _safeDouble(item['originalPrice']),
-          discountedPrice: _safeDouble(item['discountedPrice']),
-          discountPercent: _safeDouble(item['discountPercent']),
-          url: (item['url'] ??
-                  'https://www.google.com/search?q=${Uri.encodeComponent(query)}')
-              .toString(),
-          createdAt: DateTime.now(),
-        ));
+        deals.add(
+          Deal(
+            id: 'ai_${DateTime.now().millisecondsSinceEpoch}_$i',
+            title: (item['title'] ?? query).toString(),
+            description: (item['description'] ?? 'AI önerisi').toString(),
+            imageUrl: '',
+            platform: (item['platform'] ?? 'İnternet').toString(),
+            category: (item['category'] ?? 'genel').toString(),
+            originalPrice: _safeDouble(item['originalPrice']),
+            discountedPrice: _safeDouble(item['discountedPrice']),
+            discountPercent: _safeDouble(item['discountPercent']),
+            url:
+                (item['url'] ??
+                        'https://www.google.com/search?q=${Uri.encodeComponent(query)}')
+                    .toString(),
+            createdAt: DateTime.now(),
+          ),
+        );
       } catch (e) {
         continue;
       }

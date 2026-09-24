@@ -1,51 +1,136 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:html/parser.dart' as parser;
 import '../models/deal.dart';
 import '../models/coupon.dart';
 
+/// Tek bir arama kaynağının (mağaza/sitening) bu aramadaki durumu.
+class SearchSourceStatus {
+  const SearchSourceStatus({
+    required this.name,
+    required this.count,
+    required this.ok,
+    required this.message,
+  });
+
+  final String name;
+  final int count;
+  final bool ok;
+  final String message;
+}
+
+/// Arama sonucu + hangi kaynağın ne döndürdüğü.
+class SearchResultBundle {
+  const SearchResultBundle({required this.deals, required this.statuses});
+  final List<Deal> deals;
+  final List<SearchSourceStatus> statuses;
+}
+
 class ScraperService {
-  final Dio _dio = Dio(BaseOptions(
-    headers: {
-      'User-Agent':
-          'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 '
-          '(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-      'Accept': 'application/json, text/html, */*;q=0.8',
-      'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
-    },
-    validateStatus: (status) => true,
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
-  ));
+  final Dio _dio = Dio(
+    BaseOptions(
+      headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 '
+            '(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        'Accept': 'application/json, text/html, */*;q=0.8',
+        'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
+      },
+      validateStatus: (status) => true,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+    ),
+  );
 
   // ─────────────────────────────────────────────────────────
   //  ANA FONKSİYON: Birden fazla kaynaktan veri çek
   // ─────────────────────────────────────────────────────────
   Future<List<Deal>> getMultiSiteDeals(String query) async {
-    if (query.trim().isEmpty) return [];
+    return (await getMultiSiteDealBundle(query)).deals;
+  }
+
+  Future<SearchResultBundle> getMultiSiteDealBundle(String query) async {
+    if (query.trim().isEmpty) {
+      return const SearchResultBundle(deals: [], statuses: []);
+    }
 
     final results = await Future.wait([
-      _safeScrape(() => searchTrendyolApi(query)),
-      _safeScrape(() => searchCimri(query)),
+      _safeScrapeWithStatus('Trendyol', () => searchTrendyolApi(query)),
+      _safeScrapeWithStatus('Cimri', () => searchCimri(query)),
     ]);
 
     final allDeals = <Deal>[];
-    for (var list in results) {
-      allDeals.addAll(list);
+    final statuses = <SearchSourceStatus>[];
+    for (final result in results) {
+      allDeals.addAll(result.deals);
+      statuses.addAll(result.statuses);
     }
-    return allDeals;
+    return SearchResultBundle(deals: allDeals, statuses: statuses);
   }
 
-  Future<List<Deal>> _safeScrape(
-      Future<List<Deal>> Function() scraper) async {
+  Future<SearchResultBundle> _safeScrapeWithStatus(
+    String sourceName,
+    Future<List<Deal>> Function() scraper,
+  ) async {
     try {
-      return await scraper().timeout(
+      final deals = await scraper().timeout(
         const Duration(seconds: 12),
-        onTimeout: () => [],
+        onTimeout: () => throw TimeoutException('Kaynak zaman aşımına uğradı'),
+      );
+      return SearchResultBundle(
+        deals: deals,
+        statuses: [
+          SearchSourceStatus(
+            name: sourceName,
+            count: deals.length,
+            ok: true,
+            message: deals.isEmpty ? 'Sonuç yok' : '${deals.length} sonuç',
+          ),
+        ],
+      );
+    } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+      final blocked = statusCode == 403 || statusCode == 429;
+      return SearchResultBundle(
+        deals: const [],
+        statuses: [
+          SearchSourceStatus(
+            name: sourceName,
+            count: 0,
+            ok: false,
+            message: blocked
+                ? '$statusCode engellendi'
+                : 'Bağlantı hatası: ${e.message ?? 'bilinmiyor'}',
+          ),
+        ],
+      );
+    } on TimeoutException {
+      return SearchResultBundle(
+        deals: const [],
+        statuses: [
+          SearchSourceStatus(
+            name: sourceName,
+            count: 0,
+            ok: false,
+            message: 'Zaman aşımı',
+          ),
+        ],
       );
     } catch (e) {
-      debugPrint('ScraperService _safeScrape error: $e');
-      return [];
+      debugPrint('ScraperService _safeScrapeWithStatus error: $e');
+      return SearchResultBundle(
+        deals: const [],
+        statuses: [
+          SearchSourceStatus(
+            name: sourceName,
+            count: 0,
+            ok: false,
+            message: 'Hata: $e',
+          ),
+        ],
+      );
     }
   }
 
@@ -71,7 +156,14 @@ class ScraperService {
         },
       );
 
-      if (response.statusCode != 200 || response.data == null) return deals;
+      if (response.statusCode != 200) {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+        );
+      }
+      if (response.data == null) return deals;
 
       final data = response.data;
       if (data is! Map<String, dynamic>) return deals;
@@ -87,8 +179,9 @@ class ScraperService {
           final price = p['price'] as Map<String, dynamic>?;
           if (price == null) continue;
 
-          final selling =
-              _toDouble(price['sellingPrice'] ?? price['discountedPrice']);
+          final selling = _toDouble(
+            price['sellingPrice'] ?? price['discountedPrice'],
+          );
           final original = _toDouble(price['originalPrice']);
           if (selling <= 0) continue;
 
@@ -123,23 +216,25 @@ class ScraperService {
               ? ((original - selling) / original * 100).roundToDouble()
               : 0.0;
 
-          deals.add(Deal(
-            id: 'ty_${p['id'] ?? i}',
-            title: title.trim(),
-            description: disc > 0
-                ? 'Trendyol\'da %${disc.toInt()} indirimli!'
-                : 'Trendyol\'da uygun fiyat',
-            imageUrl: imageUrl,
-            platform: 'Trendyol',
-            category: _mapCategory(p['categoryName']?.toString() ?? ''),
-            originalPrice: original > 0 ? original : selling,
-            discountedPrice: selling,
-            discountPercent: disc,
-            url: fullUrl,
-             createdAt: DateTime.now(),
-             source: DataSourceType.scraper,
-             fetchedAt: DateTime.now(),
-          ));
+          deals.add(
+            Deal(
+              id: 'ty_${p['id'] ?? i}',
+              title: title.trim(),
+              description: disc > 0
+                  ? 'Trendyol\'da %${disc.toInt()} indirimli!'
+                  : 'Trendyol\'da uygun fiyat',
+              imageUrl: imageUrl,
+              platform: 'Trendyol',
+              category: _mapCategory(p['categoryName']?.toString() ?? ''),
+              originalPrice: original > 0 ? original : selling,
+              discountedPrice: selling,
+              discountPercent: disc,
+              url: fullUrl,
+              createdAt: DateTime.now(),
+              source: DataSourceType.scraper,
+              fetchedAt: DateTime.now(),
+            ),
+          );
         } catch (e) {
           continue;
         }
@@ -161,7 +256,14 @@ class ScraperService {
         queryParameters: {'q': query},
       );
 
-      if (response.statusCode != 200 || response.data is! String) {
+      if (response.statusCode != 200) {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+        );
+      }
+      if (response.data is! String) {
         return deals;
       }
 
@@ -171,8 +273,9 @@ class ScraperService {
       for (var item in items) {
         try {
           final titleEl = item.querySelector('[class*="ProductName"], h3, a');
-          final priceEl =
-              item.querySelector('[class*="Price"], [class*="price"]');
+          final priceEl = item.querySelector(
+            '[class*="Price"], [class*="price"]',
+          );
           final imgEl = item.querySelector('img');
           final linkEl = item.querySelector('a');
 
@@ -190,29 +293,31 @@ class ScraperService {
           final price = double.tryParse(priceText) ?? 0.0;
           if (price <= 0) continue;
 
-          final imgUrl = imgEl?.attributes['src'] ??
-              imgEl?.attributes['data-src'] ??
-              '';
+          final imgUrl =
+              imgEl?.attributes['src'] ?? imgEl?.attributes['data-src'] ?? '';
           final href = linkEl?.attributes['href'] ?? '';
-          final link =
-              href.startsWith('http') ? href : 'https://www.cimri.com$href';
+          final link = href.startsWith('http')
+              ? href
+              : 'https://www.cimri.com$href';
 
           if (deals.length < 5) {
-            deals.add(Deal(
-              id: 'cimri_${link.hashCode}',
-              title: title,
-              description: 'Cimri fiyat karşılaştırması',
-              imageUrl: imgUrl.startsWith('http') ? imgUrl : 'https:$imgUrl',
-              platform: 'Cimri',
-              category: 'search',
-               originalPrice: price,
-               discountedPrice: price,
-               discountPercent: 0,
-               url: link,
-               createdAt: DateTime.now(),
-               source: DataSourceType.scraper,
-               fetchedAt: DateTime.now(),
-            ));
+            deals.add(
+              Deal(
+                id: 'cimri_${link.hashCode}',
+                title: title,
+                description: 'Cimri fiyat karşılaştırması',
+                imageUrl: imgUrl.startsWith('http') ? imgUrl : 'https:$imgUrl',
+                platform: 'Cimri',
+                category: 'search',
+                originalPrice: price,
+                discountedPrice: price,
+                discountPercent: 0,
+                url: link,
+                createdAt: DateTime.now(),
+                source: DataSourceType.scraper,
+                fetchedAt: DateTime.now(),
+              ),
+            );
           }
         } catch (e) {
           continue;
@@ -235,7 +340,9 @@ class ScraperService {
 
   String _mapCategory(String cat) {
     final l = cat.toLowerCase();
-    if (l.contains('elektron') || l.contains('telefon') || l.contains('bilgi')) {
+    if (l.contains('elektron') ||
+        l.contains('telefon') ||
+        l.contains('bilgi')) {
       return 'electronics';
     }
     if (l.contains('giyim') || l.contains('ayakkab') || l.contains('moda')) {

@@ -8,6 +8,7 @@ import '../services/ai_service.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/search_matcher.dart';
+import '../services/scraper_service.dart';
 import '../config/env.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) {
@@ -179,10 +180,7 @@ class CouponsNotifier extends StateNotifier<List<Coupon>> {
   }
 
   Future<void> updateStatus(Coupon coupon, CouponStatus status) async {
-    final updated = coupon.copyWith(
-      status: status,
-      lastCheckedAt: DateTime.now(),
-    );
+    final updated = coupon.copyWithCheckedStatus(status);
     _allCoupons = _allCoupons
         .map((item) => item.id == coupon.id ? updated : item)
         .toList();
@@ -238,16 +236,22 @@ final aiChatResponseProvider = FutureProvider<String>((ref) async {
   }
 });
 
-/// ARAMA: AI + Scraper birleşik sonuç
-final searchResultsProvider = FutureProvider<List<Deal>>((ref) async {
+/// ARAMA: AI + Scraper birleşik sonuç ve kaynak durumları
+final searchResultBundleProvider = FutureProvider<SearchResultBundle>((
+  ref,
+) async {
   final query = ref.watch(activeSearchQueryProvider);
-  if (query.isEmpty) return [];
+  if (query.isEmpty) {
+    return const SearchResultBundle(deals: [], statuses: []);
+  }
 
   try {
     final aiService = ref.read(aiServiceProvider);
     final currentDeals = ref.read(dealsProvider);
-    // AI + Scraper birleşik arama
-    final smartResults = await aiService.searchDealsSmart(query);
+    final smartBundle = await aiService.searchDealsSmartBundle(query);
+    final smartResults = smartBundle.deals
+        .where((deal) => deal.isTrusted)
+        .toList();
 
     // Lokal deal'lerde de arama yap ve ekle
     final lowerQuery = query.toLowerCase();
@@ -266,9 +270,12 @@ final searchResultsProvider = FutureProvider<List<Deal>>((ref) async {
       }
     }
 
-    return SearchMatcher.rank(query, allResults);
+    return SearchResultBundle(
+      deals: SearchMatcher.rank(query, allResults),
+      statuses: smartBundle.statuses,
+    );
   } catch (e) {
-    debugPrint('searchResultsProvider error: $e');
+    debugPrint('searchResultBundleProvider error: $e');
     // Hata olursa sadece lokal arama
     final lowerQuery = query.toLowerCase();
     final currentDeals = ref.read(dealsProvider);
@@ -276,8 +283,22 @@ final searchResultsProvider = FutureProvider<List<Deal>>((ref) async {
       return deal.title.toLowerCase().contains(lowerQuery) ||
           deal.description.toLowerCase().contains(lowerQuery);
     });
-    return SearchMatcher.rank(query, localMatches);
+    return SearchResultBundle(
+      deals: SearchMatcher.rank(query, localMatches),
+      statuses: [
+        SearchSourceStatus(
+          name: 'Arama',
+          count: 0,
+          ok: false,
+          message: 'Hata: $e',
+        ),
+      ],
+    );
   }
+});
+
+final searchResultsProvider = FutureProvider<List<Deal>>((ref) async {
+  return (await ref.watch(searchResultBundleProvider.future)).deals;
 });
 
 // ==================== Favorites ====================
@@ -340,5 +361,7 @@ final selectedTabProvider = StateProvider<int>((ref) => 0);
 // ==================== Price History ====================
 
 final priceHistoryProvider = Provider<List<PriceHistory>>((ref) {
-  return MockDataService.getPriceHistory();
+  // Doğrulanmış, ürün kimliğine bağlı fiyat geçmişi eklenene kadar
+  // mock geçmişi gerçek ürün ekranında göstermeyiz.
+  return const [];
 });
