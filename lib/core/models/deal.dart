@@ -121,7 +121,13 @@ class Deal {
     return DateTime.now().difference(fetchedAt!) <= maxAge;
   }
 
+  bool get hasTrustedSource =>
+      source == DataSourceType.officialApi ||
+      source == DataSourceType.affiliateFeed ||
+      source == DataSourceType.scraper;
+
   bool get isTrusted =>
+      hasTrustedSource &&
       discountedPrice > 0 &&
       (originalPrice <= 0 || originalPrice >= discountedPrice) &&
       isFresh();

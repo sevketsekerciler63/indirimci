@@ -42,5 +42,45 @@ void main() {
 
       expect(deal.isTrusted, isTrue);
     });
+
+    test('fresh deal with unknown source is not trusted', () {
+      final deal = Deal(
+        id: 'unknown-fresh',
+        title: 'Kaynağı belirsiz ürün',
+        description: 'kaynak yok',
+        imageUrl: '',
+        platform: 'Bilinmeyen',
+        category: 'genel',
+        originalPrice: 100,
+        discountedPrice: 80,
+        discountPercent: 20,
+        url: 'https://example.com/item',
+        createdAt: DateTime.now(),
+        source: DataSourceType.unknown,
+        fetchedAt: DateTime.now().subtract(const Duration(minutes: 10)),
+      );
+
+      expect(deal.isTrusted, isFalse);
+    });
+
+    test('fresh mock deal is not trusted', () {
+      final deal = Deal(
+        id: 'mock-fresh',
+        title: 'Demo ürün',
+        description: 'mock',
+        imageUrl: '',
+        platform: 'Demo',
+        category: 'genel',
+        originalPrice: 100,
+        discountedPrice: 80,
+        discountPercent: 20,
+        url: 'https://example.com/item',
+        createdAt: DateTime.now(),
+        source: DataSourceType.mock,
+        fetchedAt: DateTime.now().subtract(const Duration(minutes: 10)),
+      );
+
+      expect(deal.isTrusted, isFalse);
+    });
   });
 }
