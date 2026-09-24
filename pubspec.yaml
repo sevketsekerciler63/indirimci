@@ -23,7 +23,6 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   
   # UI
-  google_fonts: ^6.2.1
   flutter_animate: ^4.5.2
   shimmer: ^3.0.0
   cached_network_image: ^3.4.1

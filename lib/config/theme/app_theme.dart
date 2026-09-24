@@ -1,58 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTheme {
   AppTheme._();
 
   static ThemeData get darkTheme {
-    // Google Fonts HTTP hatalarında çökmemesi için
-    GoogleFonts.config.allowRuntimeFetching = true;
-
-    TextTheme textTheme;
-    try {
-      textTheme = GoogleFonts.poppinsTextTheme(
-        ThemeData.dark().textTheme,
-      ).apply(
-        bodyColor: AppColors.textPrimary,
-        displayColor: AppColors.textPrimary,
-      );
-    } catch (e) {
-      // Font indirme başarısız olursa sistem fontunu kullan
-      textTheme = ThemeData.dark().textTheme.apply(
-        bodyColor: AppColors.textPrimary,
-        displayColor: AppColors.textPrimary,
-      );
-    }
-
-    TextStyle? appBarTitleStyle;
-    try {
-      appBarTitleStyle = GoogleFonts.poppins(
-        color: AppColors.textPrimary,
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-      );
-    } catch (e) {
-      appBarTitleStyle = const TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-      );
-    }
-
-    TextStyle? buttonTextStyle;
-    try {
-      buttonTextStyle = GoogleFonts.poppins(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-      );
-    } catch (e) {
-      buttonTextStyle = const TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-      );
-    }
+    final baseTextTheme = ThemeData.dark().textTheme.apply(
+      bodyColor: AppColors.textPrimary,
+      displayColor: AppColors.textPrimary,
+    );
+    const appBarTitleStyle = TextStyle(
+      color: AppColors.textPrimary,
+      fontSize: 20,
+      fontWeight: FontWeight.w600,
+    );
+    const buttonTextStyle = TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+    );
 
     return ThemeData(
       useMaterial3: true,
@@ -68,7 +34,7 @@ class AppTheme {
         onSurface: AppColors.textPrimary,
         onError: Colors.white,
       ),
-      textTheme: textTheme,
+      textTheme: baseTextTheme,
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -101,7 +67,10 @@ class AppTheme {
           borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
         hintStyle: const TextStyle(color: AppColors.textTertiary),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.bgDarkSecondary,
@@ -124,7 +93,9 @@ class AppTheme {
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           textStyle: buttonTextStyle,
         ),
       ),
