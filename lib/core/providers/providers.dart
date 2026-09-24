@@ -17,33 +17,70 @@ final apiServiceProvider = Provider<ApiService>((ref) {
 
 // ==================== Deals ====================
 
+class DealsLoadState {
+  const DealsLoadState({
+    required this.isLoading,
+    required this.hasLoaded,
+    required this.message,
+  });
+
+  const DealsLoadState.loading()
+    : isLoading = true,
+      hasLoaded = false,
+      message = 'Doğrulanmış fırsatlar kontrol ediliyor.';
+
+  final bool isLoading;
+  final bool hasLoaded;
+  final String message;
+}
+
+final dealsLoadStateProvider = StateProvider<DealsLoadState>(
+  (ref) => const DealsLoadState.loading(),
+);
+
 final dealsProvider = StateNotifierProvider<DealsNotifier, List<Deal>>((ref) {
   final apiService = ref.read(apiServiceProvider);
-  return DealsNotifier(apiService);
+  return DealsNotifier(apiService, ref);
 });
-
-final dealsLoadingProvider = StateProvider<bool>((ref) => true);
 
 class DealsNotifier extends StateNotifier<List<Deal>> {
   final ApiService _apiService;
+  final Ref _ref;
   List<Deal> _allDeals = [];
 
-  DealsNotifier(this._apiService) : super([]) {
+  DealsNotifier(this._apiService, this._ref) : super([]) {
     _loadDeals();
   }
 
+  List<Deal> _trustedDeals(Iterable<Deal> deals) {
+    return deals.where((deal) => deal.isTrusted).toList();
+  }
+
+  void _publishLoadState({required bool sourceReturnedRows}) {
+    _ref.read(dealsLoadStateProvider.notifier).state = DealsLoadState(
+      isLoading: false,
+      hasLoaded: true,
+      message: _allDeals.isNotEmpty
+          ? '${_allDeals.length} güncel ve doğrulanmış fırsat gösteriliyor.'
+          : sourceReturnedRows
+          ? 'Kaynak yanıt verdi ancak güncel ve doğrulanmış fırsat bulunamadı.'
+          : 'Bağlı ve doğrulanmış fırsat kaynağı henüz yok.',
+    );
+  }
+
   Future<void> _loadDeals() async {
+    _ref.read(dealsLoadStateProvider.notifier).state =
+        const DealsLoadState.loading();
+    var sourceReturnedRows = false;
     try {
-      // Önce API'den dene
       final rawDeals = await _apiService.fetchRealDeals();
-      if (rawDeals.isNotEmpty) {
-        _allDeals = rawDeals.where((deal) => deal.isTrusted).toList();
-      }
+      sourceReturnedRows = rawDeals.isNotEmpty;
+      _allDeals = _trustedDeals(rawDeals);
     } catch (e) {
       debugPrint('DealsNotifier _loadDeals API error: $e');
+      _allDeals = [];
     }
 
-    // API boş döndüyse mock data kullan (uygulama boş açılmasın)
     if (_allDeals.isEmpty && Env.enableUntrustedData) {
       _allDeals = MockDataService.getDailyDeals();
       debugPrint(
@@ -53,25 +90,28 @@ class DealsNotifier extends StateNotifier<List<Deal>> {
 
     if (mounted) {
       state = _allDeals;
+      _publishLoadState(sourceReturnedRows: sourceReturnedRows);
     }
   }
 
   Future<void> refresh() async {
+    _ref.read(dealsLoadStateProvider.notifier).state =
+        const DealsLoadState.loading();
+    var sourceReturnedRows = false;
     try {
       final freshDeals = await _apiService.fetchRealDeals();
-      if (freshDeals.isNotEmpty) {
-        _allDeals = freshDeals;
-      } else {
-        // Yenileme boş döndüyse mock güncelle
-        _allDeals = Env.enableUntrustedData
-            ? MockDataService.getDailyDeals()
-            : [];
+      sourceReturnedRows = freshDeals.isNotEmpty;
+      _allDeals = _trustedDeals(freshDeals);
+      if (_allDeals.isEmpty && Env.enableUntrustedData) {
+        _allDeals = MockDataService.getDailyDeals();
       }
     } catch (e) {
       debugPrint('DealsNotifier refresh error: $e');
+      _allDeals = [];
     }
     if (mounted) {
       state = _allDeals;
+      _publishLoadState(sourceReturnedRows: sourceReturnedRows);
     }
   }
 

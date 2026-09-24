@@ -14,6 +14,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final deals = ref.watch(dealsProvider);
+    final dealsLoadState = ref.watch(dealsLoadStateProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
     final categories = ref.watch(categoriesProvider);
     final favorites = ref.watch(favoritesProvider);
@@ -35,8 +36,14 @@ class HomeScreen extends ConsumerWidget {
             _buildAppBar(ref, totalSavings),
             _buildSearchBar(ref),
             _buildCategories(ref, categories, selectedCategory),
-            _buildSectionTitle(deals.length),
-            _buildDealsList(deals, favorites, ref),
+            _buildSectionTitle(deals.length, dealsLoadState),
+            _buildDealsList(
+              deals,
+              favorites,
+              ref,
+              dealsLoadState,
+              selectedCategory,
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
@@ -83,13 +90,19 @@ class HomeScreen extends ConsumerWidget {
                         ).animate().fadeIn(duration: 600.ms),
                         const Text(
                           'En iyi firsatlar, AI destekli',
-                          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       gradient: AppColors.savingsGradient,
                       borderRadius: BorderRadius.circular(14),
@@ -97,11 +110,19 @@ class HomeScreen extends ConsumerWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Iconsax.money_recive, color: Colors.white, size: 18),
+                        const Icon(
+                          Iconsax.money_recive,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           '${totalSavings.toStringAsFixed(0)} TL',
-                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
@@ -131,14 +152,22 @@ class HomeScreen extends ConsumerWidget {
             child: Row(
               children: [
                 ShaderMask(
-                  shaderCallback: (b) => AppColors.primaryGradient.createShader(b),
-                  child: const Icon(Iconsax.search_normal_1, color: Colors.white, size: 22),
+                  shaderCallback: (b) =>
+                      AppColors.primaryGradient.createShader(b),
+                  child: const Icon(
+                    Iconsax.search_normal_1,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
                     'Indirim ara... "Bebek mamasi?"',
-                    style: TextStyle(color: AppColors.textTertiary, fontSize: 14),
+                    style: TextStyle(
+                      color: AppColors.textTertiary,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
                 Container(
@@ -147,7 +176,11 @@ class HomeScreen extends ConsumerWidget {
                     gradient: AppColors.primaryGradient,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Iconsax.microphone, color: Colors.white, size: 18),
+                  child: const Icon(
+                    Iconsax.microphone,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
               ],
             ),
@@ -173,39 +206,65 @@ class HomeScreen extends ConsumerWidget {
                 ref.read(dealsProvider.notifier).filterByCategory('all');
               },
             ),
-            ...categories.map((cat) => CategoryChip(
-                  category: cat,
-                  isSelected: selected == cat.id,
-                  onTap: () {
-                    ref.read(selectedCategoryProvider.notifier).state = cat.id;
-                    ref.read(dealsProvider.notifier).filterByCategory(cat.id);
-                  },
-                )),
+            ...categories.map(
+              (cat) => CategoryChip(
+                category: cat,
+                isSelected: selected == cat.id,
+                onTap: () {
+                  ref.read(selectedCategoryProvider.notifier).state = cat.id;
+                  ref.read(dealsProvider.notifier).filterByCategory(cat.id);
+                },
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSectionTitle(int count) {
+  Widget _buildSectionTitle(int count, DealsLoadState loadState) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
         child: Row(
           children: [
-            const Icon(Icons.local_fire_department, color: AppColors.accent, size: 22),
+            const Icon(
+              Icons.local_fire_department,
+              color: AppColors.accent,
+              size: 22,
+            ),
             const SizedBox(width: 8),
-            const Text('Gunun Firsatlari',
-                style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text(
+              'Günün Doğrulanmış Fırsatları',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.2),
+                color:
+                    (loadState.isLoading ? AppColors.warning : AppColors.accent)
+                        .withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text('$count',
-                  style: const TextStyle(color: AppColors.accent, fontSize: 12, fontWeight: FontWeight.w700)),
+              child: loadState.isLoading
+                  ? const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: AppColors.accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
             ),
           ],
         ).animate().fadeIn(delay: 500.ms),
@@ -213,18 +272,54 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDealsList(List deals, List favorites, WidgetRef ref) {
+  Widget _buildDealsList(
+    List deals,
+    List favorites,
+    WidgetRef ref,
+    DealsLoadState loadState,
+    String selectedCategory,
+  ) {
     if (deals.isEmpty) {
+      final isCategoryEmpty = selectedCategory != 'all' && loadState.hasLoaded;
+      final message = loadState.isLoading
+          ? loadState.message
+          : isCategoryEmpty
+          ? 'Bu kategoride güncel ve doğrulanmış fırsat yok.'
+          : loadState.message;
       return SliverToBoxAdapter(
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(40),
             child: Column(
               children: [
-                Icon(Iconsax.search_status, color: AppColors.textTertiary, size: 48),
+                if (loadState.isLoading)
+                  const CircularProgressIndicator(color: AppColors.primary)
+                else
+                  const Icon(
+                    Iconsax.search_status,
+                    color: AppColors.textTertiary,
+                    size: 48,
+                  ),
                 const SizedBox(height: 16),
-                const Text('Bu kategoride firsat yok',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 15)),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 15,
+                  ),
+                ),
+                if (!loadState.isLoading && selectedCategory == 'all') ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Sahte veya kaynağı belirsiz fiyat gösterilmiyor. Arama sekmesinde kaynakların durumunu ayrı ayrı görebilirsin.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.textTertiary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -234,23 +329,23 @@ class HomeScreen extends ConsumerWidget {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final deal = deals[index];
-            return DealCard(
-              deal: deal,
-              isFavorite: favorites.any((d) => d.id == deal.id),
-              onFavoriteTap: () => ref.read(favoritesProvider.notifier).toggleFavorite(deal),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProductDetailScreen(deal: deal)),
-                );
-              },
-            );
-          },
-          childCount: deals.length,
-        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final deal = deals[index];
+          return DealCard(
+            deal: deal,
+            isFavorite: favorites.any((d) => d.id == deal.id),
+            onFavoriteTap: () =>
+                ref.read(favoritesProvider.notifier).toggleFavorite(deal),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProductDetailScreen(deal: deal),
+                ),
+              );
+            },
+          );
+        }, childCount: deals.length),
       ),
     );
   }
