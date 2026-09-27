@@ -21,7 +21,7 @@ void callbackDispatcher() {
       final favorites = StorageService.getFavorites();
       
       if (favorites.isEmpty) {
-        return Future.value(true);
+        return true;
       }
       
       bool priceDropped = false;
@@ -54,10 +54,10 @@ void callbackDispatcher() {
       }
       
       debugPrint('Background task completed. Drops found: $priceDropped');
-      return Future.value(true);
+      return true;
     } catch (e) {
       debugPrint('Background task error: $e');
-      return Future.value(false);
+      return false;
     }
   });
 }
