@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../config/theme/app_colors.dart';
 import '../../core/providers/providers.dart';
+import '../../core/services/storage_service.dart';
 import '../product_detail/product_detail_screen.dart';
 import '../home/widgets/deal_card.dart';
 
@@ -361,9 +362,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             return DealCard(
                               deal: deal,
                               isFavorite: favorites.any((d) => d.id == deal.id),
-                              onFavoriteTap: () => ref
-                                  .read(favoritesProvider.notifier)
-                                  .toggleFavorite(deal),
+                              onFavoriteTap: () async {
+                                try {
+                                  await ref
+                                      .read(favoritesProvider.notifier)
+                                      .toggleFavorite(deal);
+                                } on StorageException {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Favori kaydedilemedi. Tekrar deneyin.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
                               onTap: () {
                                 Navigator.push(
                                   context,

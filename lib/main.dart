@@ -13,38 +13,38 @@ void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
       debugPrint('Background task started: $task');
-      
+
       // Arka planda çalışırken gerekli servisleri başlat
-      await StorageService.init();
+      await StorageService.shared.init();
       final scraper = ScraperService();
-      
-      final favorites = StorageService.getFavorites();
-      
+
+      final favorites = await StorageService.shared.loadFavorites();
+
       if (favorites.isEmpty) {
         return true;
       }
-      
+
       bool priceDropped = false;
-      
+
       // Favorilerdeki her bir ürün için güncel fiyatı kontrol et
       for (var fav in favorites) {
         // İlk 3 kelimeyle Trendyol'da arama yap
         final queryTerms = fav.title.split(' ').take(3).join(' ');
-        
+
         // Trendyol API ile gerçek fiyat bilgisi al
         final deals = await scraper.searchTrendyolApi(queryTerms);
-        
+
         for (var currentDeal in deals) {
           // URL eşleştirmesi veya başlık benzerliği ile ürünü bul
           final titleMatch = currentDeal.title.toLowerCase().contains(
             fav.title.toLowerCase().split(' ').first,
           );
-          
+
           if (currentDeal.url == fav.url || titleMatch) {
             if (currentDeal.discountedPrice < fav.discountedPrice * 0.95) {
               await NotificationService().schedulePriceDropAlert(
-                currentDeal.title, 
-                currentDeal.discountedPrice
+                currentDeal.title,
+                currentDeal.discountedPrice,
               );
               priceDropped = true;
               break;
@@ -52,7 +52,7 @@ void callbackDispatcher() {
           }
         }
       }
-      
+
       debugPrint('Background task completed. Drops found: $priceDropped');
       return true;
     } catch (e) {
@@ -64,20 +64,20 @@ void callbackDispatcher() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Storage (Hive) başlat
+
+  // Storage (Hive) başlat. Güvenli kasa açılamazsa uygulama veri yazmaz.
   try {
-    await StorageService.init();
-  } catch (e) {
-    debugPrint('StorageService Error: $e');
+    await StorageService.shared.init();
+  } on StorageException catch (error) {
+    debugPrint('StorageService Error: ${error.failure}');
+    runApp(const StorageRecoveryApp());
+    return;
   }
 
   // Workmanager'ı başlat ve periyodik görev kaydet
   // Uygulama tam başlamadan izni zorlamaması için dikkatli oluyoruz.
   try {
-    await Workmanager().initialize(
-      callbackDispatcher,
-    );
+    await Workmanager().initialize(callbackDispatcher);
     await Workmanager().registerPeriodicTask(
       "price_tracker_task",
       "checkPrices",
@@ -99,8 +99,29 @@ void main() async {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-  
+
   runApp(const ProviderScope(child: IndirimciApp()));
+}
+
+class StorageRecoveryApp extends StatelessWidget {
+  const StorageRecoveryApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Kişisel veriler açılamadı. Veriler korunuyor; kurtarma için destek alın.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class IndirimciApp extends StatelessWidget {

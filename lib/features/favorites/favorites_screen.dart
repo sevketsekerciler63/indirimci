@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../config/theme/app_colors.dart';
 import '../../core/providers/providers.dart';
+import '../../core/services/storage_service.dart';
 import '../product_detail/product_detail_screen.dart';
 import '../home/widgets/deal_card.dart';
 
@@ -58,18 +59,29 @@ class FavoritesScreen extends ConsumerWidget {
                       shape: BoxShape.circle,
                       border: Border.all(color: AppColors.borderDark),
                     ),
-                    child: const Icon(Iconsax.heart, color: AppColors.textTertiary, size: 48),
+                    child: const Icon(
+                      Iconsax.heart,
+                      color: AppColors.textTertiary,
+                      size: 48,
+                    ),
                   ).animate().scale(duration: 600.ms, curve: Curves.elasticOut),
                   const SizedBox(height: 20),
                   const Text(
                     'Henuz favori yok',
-                    style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ).animate().fadeIn(delay: 200.ms),
                   const SizedBox(height: 8),
                   const Text(
                     'Begendigniz firsatlari kalbine dokunarak\nfavorilere ekleyin!',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
                   ).animate().fadeIn(delay: 300.ms),
                 ],
               ),
@@ -83,11 +95,28 @@ class FavoritesScreen extends ConsumerWidget {
                 return DealCard(
                   deal: deal,
                   isFavorite: true,
-                  onFavoriteTap: () => ref.read(favoritesProvider.notifier).toggleFavorite(deal),
+                  onFavoriteTap: () async {
+                    try {
+                      await ref
+                          .read(favoritesProvider.notifier)
+                          .toggleFavorite(deal);
+                    } on StorageException {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Favori güncellenemedi. Tekrar deneyin.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => ProductDetailScreen(deal: deal)),
+                      MaterialPageRoute(
+                        builder: (context) => ProductDetailScreen(deal: deal),
+                      ),
                     );
                   },
                 );

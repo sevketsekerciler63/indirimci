@@ -7,6 +7,7 @@ import '../../core/providers/providers.dart';
 import 'widgets/coupon_card.dart';
 import '../../core/models/coupon.dart';
 import '../../core/services/coupon_recommendation_service.dart';
+import '../../core/services/storage_service.dart';
 
 class CouponsScreen extends ConsumerStatefulWidget {
   const CouponsScreen({super.key});
@@ -180,9 +181,22 @@ class _CouponsScreenState extends ConsumerState<CouponsScreen> {
                     itemCount: coupons.length,
                     itemBuilder: (context, index) => CouponCard(
                       coupon: coupons[index],
-                      onStatusChanged: (status) => ref
-                          .read(couponsProvider.notifier)
-                          .updateStatus(coupons[index], status),
+                      onStatusChanged: (status) async {
+                        try {
+                          await ref
+                              .read(couponsProvider.notifier)
+                              .updateStatus(coupons[index], status);
+                        } on StorageException {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Kupon durumu kaydedilemedi. Tekrar deneyin.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
                     ),
                   ),
           ),
@@ -420,7 +434,16 @@ class _CouponsScreenState extends ConsumerState<CouponsScreen> {
       isHidden: true,
       lastCheckedAt: DateTime.now(),
     );
-    await ref.read(couponsProvider.notifier).addManualCoupon(coupon);
+    try {
+      await ref.read(couponsProvider.notifier).addManualCoupon(coupon);
+    } on StorageException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kupon kaydedilemedi. Kasa verileri değiştirilmedi.'),
+        ),
+      );
+    }
   }
 
   Widget _buildStatChip({

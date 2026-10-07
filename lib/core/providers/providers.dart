@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/deal.dart';
@@ -13,6 +15,10 @@ import '../config/env.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService.fromEnv();
+});
+
+final storageServiceProvider = Provider<StorageRepository>((ref) {
+  return StorageService.shared;
 });
 
 // ==================== Deals ====================
@@ -135,25 +141,35 @@ final couponsProvider = StateNotifierProvider<CouponsNotifier, List<Coupon>>((
 ) {
   final apiService = ref.read(apiServiceProvider);
   final aiService = ref.read(aiServiceProvider);
-  return CouponsNotifier(apiService, aiService);
+  final storage = ref.read(storageServiceProvider);
+  return CouponsNotifier(apiService, aiService, storage: storage);
 });
 
 class CouponsNotifier extends StateNotifier<List<Coupon>> {
   final ApiService _apiService;
   final AIService _aiService;
+  final StorageRepository _storage;
   List<Coupon> _allCoupons = [];
 
-  CouponsNotifier(this._apiService, this._aiService) : super([]) {
+  CouponsNotifier(
+    this._apiService,
+    this._aiService, {
+    StorageRepository? storage,
+  }) : _storage = storage ?? StorageService.shared,
+       super([]) {
     _loadCoupons();
   }
 
   Future<void> _loadCoupons() async {
     // Kullanıcının kendi eklediği kuponlar API doğrulaması gerektirmez.
     // Uygulama yeniden açıldığında da kaybolmamaları için önce yerelden al.
-    final savedCoupons = StorageService.getCoupons()
-        .where((coupon) => coupon.source == DataSourceType.manual)
-        .toList();
-    _allCoupons = savedCoupons;
+    try {
+      _allCoupons = (await _storage.loadCoupons())
+          .where((coupon) => coupon.source == DataSourceType.manual)
+          .toList();
+    } catch (e) {
+      debugPrint('CouponsNotifier yerel kupon okuma hatası: $e');
+    }
     try {
       // Önce API'den dene
       final rawCoupons = await _apiService.fetchCoupons();
@@ -221,20 +237,19 @@ class CouponsNotifier extends StateNotifier<List<Coupon>> {
 
   Future<void> updateStatus(Coupon coupon, CouponStatus status) async {
     final updated = coupon.copyWithCheckedStatus(status);
-    _allCoupons = _allCoupons
+    final next = _allCoupons
         .map((item) => item.id == coupon.id ? updated : item)
         .toList();
+    await _storage.saveCoupon(updated);
+    _allCoupons = next;
     if (mounted) state = List.from(_allCoupons);
-    await StorageService.saveCoupon(updated);
   }
 
   Future<void> addManualCoupon(Coupon coupon) async {
-    _allCoupons = [
-      coupon,
-      ..._allCoupons.where((item) => item.id != coupon.id),
-    ];
+    final next = [coupon, ..._allCoupons.where((item) => item.id != coupon.id)];
+    await _storage.saveCoupon(coupon);
+    _allCoupons = next;
     if (mounted) state = List.from(_allCoupons);
-    await StorageService.saveCoupon(coupon);
   }
 
   void filterByCategory(String categoryId) {
@@ -346,17 +361,22 @@ final searchResultsProvider = FutureProvider<List<Deal>>((ref) async {
 final favoritesProvider = StateNotifierProvider<FavoritesNotifier, List<Deal>>((
   ref,
 ) {
-  return FavoritesNotifier();
+  return FavoritesNotifier(storage: ref.read(storageServiceProvider));
 });
 
 class FavoritesNotifier extends StateNotifier<List<Deal>> {
-  FavoritesNotifier() : super([]) {
-    _loadFromStorage();
+  FavoritesNotifier({StorageRepository? storage})
+    : _storage = storage ?? StorageService.shared,
+      super([]) {
+    _operations = _loadFromStorage();
   }
 
-  void _loadFromStorage() {
+  final StorageRepository _storage;
+  late Future<void> _operations;
+
+  Future<void> _loadFromStorage() async {
     try {
-      final saved = StorageService.getFavorites();
+      final saved = await _storage.loadFavorites();
       if (mounted) {
         state = saved;
       }
@@ -365,21 +385,21 @@ class FavoritesNotifier extends StateNotifier<List<Deal>> {
     }
   }
 
-  void toggleFavorite(Deal deal) {
-    if (state.any((d) => d.id == deal.id)) {
-      state = state.where((d) => d.id != deal.id).toList();
-    } else {
-      state = [...state, deal];
-    }
-    _saveToStorage();
-  }
-
-  Future<void> _saveToStorage() async {
-    try {
-      await StorageService.saveFavorites(state);
-    } catch (e) {
-      debugPrint('FavoritesNotifier: Storage yazma hatası: $e');
-    }
+  Future<void> toggleFavorite(Deal deal) async {
+    final completer = Completer<void>();
+    _operations = _operations.then((_) async {
+      try {
+        final next = state.any((d) => d.id == deal.id)
+            ? state.where((d) => d.id != deal.id).toList()
+            : [...state, deal];
+        await _storage.saveFavorites(next);
+        if (mounted) state = next;
+        completer.complete();
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+    return completer.future;
   }
 
   bool isFavorite(String dealId) {

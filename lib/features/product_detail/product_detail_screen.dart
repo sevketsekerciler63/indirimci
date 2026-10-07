@@ -10,6 +10,7 @@ import '../../core/models/deal.dart';
 import '../../core/models/coupon.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/notification_service.dart';
+import '../../core/services/storage_service.dart';
 import 'coupon_calculation_sheet.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
@@ -98,8 +99,19 @@ class ProductDetailScreen extends ConsumerWidget {
                     size: 20,
                   ),
                 ),
-                onPressed: () {
-                  ref.read(favoritesProvider.notifier).toggleFavorite(deal);
+                onPressed: () async {
+                  try {
+                    await ref
+                        .read(favoritesProvider.notifier)
+                        .toggleFavorite(deal);
+                  } on StorageException {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Favori güncellenemedi. Tekrar deneyin.'),
+                      ),
+                    );
+                  }
                 },
               ),
               const SizedBox(width: 8),
@@ -475,11 +487,25 @@ class ProductDetailScreen extends ConsumerWidget {
                         if (!ref
                             .read(favoritesProvider)
                             .any((d) => d.id == deal.id)) {
-                          ref
-                              .read(favoritesProvider.notifier)
-                              .toggleFavorite(deal);
+                          try {
+                            await ref
+                                .read(favoritesProvider.notifier)
+                                .toggleFavorite(deal);
+                          } on StorageException {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Fiyat alarmı için ürün kaydedilemedi.',
+                                ),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                            return;
+                          }
                         }
 
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: const Text(
